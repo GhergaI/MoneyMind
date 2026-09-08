@@ -82,7 +82,8 @@ public class DashboardService {
                 totalOf(currency, accounts, AccountBalance::isAsset),
                 totalOf(currency, accounts, account -> true),
                 totalOf(currency, accounts, account -> account.type() == AccountType.SAVINGS),
-                queries.incomeBetween(currency, monthStart, nextMonthStart),
+                queries.incomeBetween(currency, monthStart, nextMonthStart)
+                        .plus(queries.expenseBetween(currency, monthStart, nextMonthStart)),
                 queries.expenseBetween(currency, monthStart, nextMonthStart),
                 monthlyBudget.map(BudgetRepository.EffectiveBudget::amount)
                         .orElse(Money.zero(currency)),
