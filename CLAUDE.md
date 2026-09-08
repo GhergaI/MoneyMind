@@ -28,6 +28,8 @@ What exists now:
 - `/api/transactions` — list, create, edit, delete, plus `POST .../transfer`.
 - `/api/budgets` — read a month, set the monthly total, set a category budget.
 - `/api/categories`, `/api/accounts` — the pickers an entry form needs.
+- `/api/goals` — list, create, edit, archive a savings goal. Progress is derived
+  and there is no way to write a saved figure.
 - Screens: Dashboard, Transactions, Budgets. Goals, Insights and Settings are
   still honest placeholders.
 
@@ -46,7 +48,9 @@ a feature's entity, repository, service and controller live together:
 common       Money and shared types — no Spring, no JPA
 transaction  TransactionService — the only write path into the ledger
 budget       BudgetRepository, BudgetService, BudgetPeriodCalculator
-account/ category/ savings/ recurring/   not yet created
+savings      GoalRepository, GoalService, FundingMode — goals; progress is read
+             through reporting, never stored
+account/ category/ recurring/   not yet created
 reporting    native SQL projections to DTOs, never entities
              ReportingQueries (all the SQL), DashboardService, DashboardSnapshot
 insight      Insight, InsightRule, AnalysisContext, InsightService
