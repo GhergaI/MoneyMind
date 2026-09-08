@@ -1,0 +1,30 @@
+# Build output
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# Frontend
+node_modules/
+ui/dist/
+*.tsbuildinfo
+ui/node_modules/
+
+# Database — never commit financial data
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# OS
+.DS_Store
+
+# Local config / secrets
+.env
+.env.local
+application-local.yml

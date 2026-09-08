@@ -1,0 +1,1106 @@
+/*
+ * MoneyMind's visual system.
+ *
+ * Colour is defined once as tokens on :root and redefined only inside the
+ * dark-mode block, so no colour has its single definition hidden in a media
+ * query. Chart marks read their colour from these same tokens rather than
+ * carrying hex values in the components.
+ *
+ * The palette: a low-chroma green accent for data marks (5.99:1 on the light
+ * surface, 7.46:1 on the dark one), and a separate, deliberately non-themed
+ * status trio for budget state. The amber sits at 1.83:1 on white, which is
+ * below the 3:1 threshold — so every status is written out as text beside a
+ * distinct shape, and colour never carries the meaning alone.
+ */
+
+:root {
+  --bg: #f7f7f5;
+  --surface: #ffffff;
+  --surface-sunken: #fbfbf9;
+  --sidebar: #f1f1ee;
+  --text: #1c1c1a;
+  --muted: #6b6b66;
+  --border: #e2e2dd;
+  --hover: #f4f4f1;
+
+  /* Data marks. */
+  --accent: #2f6f4f;
+  --accent-hover: #275c42;
+  --accent-track: #e6f0ea;
+  --accent-faded: #a8ccb8;
+  --grid: #ebebe6;
+
+  --danger: #a63d33;
+  --income: #2f6f4f;
+  --expense: #a63d33;
+
+  /*
+   * Categorical slots for the budget donut, in fixed order. Validated as a set
+   * against this surface: worst adjacent CVD deltaE 9.1, worst normal-vision
+   * deltaE 19.6. Three of them fall under 3:1 contrast here, which is why every
+   * slice is also named and valued in the legend and the table.
+   */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  /* The unspent remainder is not a category, so it is not given a hue. */
+  --series-remainder: #dcdcd6;
+
+  /* Status — fixed, never themed. Each ships with a shape and a label. */
+  --good: #0ca30c;
+  --good-track: #dcf2dc;
+  --warning: #b07000; /* text-safe step; the mark itself uses --warning-mark */
+  --warning-mark: #fab219;
+  --warning-track: #fbeccd;
+  --critical: #d03b3b;
+  --critical-track: #f7dcdc;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16161a;
+    --surface: #1f1f24;
+    --surface-sunken: #1a1a1e;
+    --sidebar: #1a1a1f;
+    --text: #f0efea;
+    --muted: #9a9a94;
+    --border: #32323a;
+    --hover: #26262c;
+
+    --accent: #6fbf92;
+    --accent-hover: #86cfa4;
+    --accent-track: #2b4c3b;
+    --accent-faded: #3f6b53;
+    --grid: #2b2b32;
+
+    --danger: #e08a80;
+    --income: #6fbf92;
+    --expense: #e08a80;
+
+    /* The same eight hues re-stepped for the dark surface, not an auto-flip.
+       All six clear 3:1 against it. */
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-remainder: #3a3a42;
+
+    --good: #0ca30c;
+    --good-track: #1e3a1e;
+    --warning: #fab219;
+    --warning-mark: #fab219;
+    --warning-track: #3d3016;
+    --critical: #e06666;
+    --critical-track: #3d1f1f;
+
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.55 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+
+/* --- layout ------------------------------------------------------------- */
+
+.layout {
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.sidebar {
+  background: var(--sidebar);
+  border-right: 1px solid var(--border);
+  padding: 22px 14px;
+  /* Sticky rather than fixed: it keeps the nav on screen while the pane
+     scrolls without taking the sidebar out of the grid. */
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 10px 22px;
+  color: var(--accent);
+}
+
+.brand-mark {
+  display: inline-flex;
+}
+
+.brand-name {
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.nav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.nav-link:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.nav-link--active {
+  background: var(--surface);
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.pane {
+  padding: 34px 32px 64px;
+  max-width: 1240px;
+  min-width: 0;
+}
+
+.page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 22px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 26px;
+  letter-spacing: -0.02em;
+}
+
+.tagline {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.notice {
+  margin: 0 0 20px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--warning-mark);
+  border-radius: 6px;
+  background: var(--surface);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* --- cards and grids ---------------------------------------------------- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 20px;
+  min-width: 0;
+}
+
+.card h2 {
+  margin: 0 0 14px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.card-sub {
+  margin: -10px 0 16px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.card--error {
+  border-color: var(--danger);
+}
+
+.grid {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.grid--two {
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+}
+
+.empty,
+.placeholder {
+  margin: 0;
+  color: var(--muted);
+}
+
+.placeholder {
+  max-width: 62ch;
+}
+
+.footnote {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.right {
+  text-align: right;
+}
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+}
+
+/* --- stat tiles --------------------------------------------------------- */
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 15px 17px;
+}
+
+.tile--hero {
+  /* The one lead figure on the page gets the space of two tiles. */
+  grid-column: span 2;
+  background: var(--surface);
+}
+
+.tile-label {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.045em;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.tile-value {
+  margin-top: 7px;
+  font-size: 23px;
+  font-weight: 620;
+  letter-spacing: -0.015em;
+  /* Proportional figures: tabular-nums makes a large standalone number look
+     loose. Tabular is reserved for the table columns below. */
+}
+
+.tile-value--hero {
+  font-size: 44px;
+  line-height: 1.1;
+  color: var(--accent);
+}
+
+.tile-note,
+.tile-delta {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.tile-delta--good {
+  color: var(--accent);
+}
+
+.tile-delta--bad {
+  color: var(--expense);
+}
+
+/* --- horizontal bars (spending by category) ----------------------------- */
+
+.bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 118px minmax(0, 1fr) 88px 42px;
+  align-items: center;
+  gap: 12px;
+  padding: 2px 4px;
+  border-radius: 6px;
+  outline: none;
+}
+
+.bar-row--hovered {
+  background: var(--hover);
+}
+
+.bar-row:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.bar-name {
+  font-size: 13.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-track {
+  display: block;
+  height: 18px;
+  background: var(--accent-track);
+  border-radius: 3px;
+}
+
+.bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  /* Square where it meets the baseline, rounded at the data end. */
+  border-radius: 0 4px 4px 0;
+  min-width: 2px;
+}
+
+.bar-value {
+  font-size: 13px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.bar-share {
+  font-size: 12px;
+  text-align: right;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- svg chart (spending trend) ----------------------------------------- */
+
+.chart-wrap {
+  /* Wide content scrolls inside its own box; the page never scrolls sideways. */
+  overflow-x: auto;
+}
+
+.chart {
+  display: block;
+  min-width: 380px;
+}
+
+.grid-line {
+  stroke: var(--grid);
+  stroke-width: 1;
+}
+
+.axis-line {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.axis-text {
+  fill: var(--muted);
+  font-size: 11px;
+}
+
+.axis-text--current {
+  fill: var(--text);
+  font-weight: 600;
+}
+
+.column {
+  fill: var(--accent);
+}
+
+.column--partial {
+  /* A month still in progress must not read as a completed low month. */
+  fill: var(--accent-faded);
+}
+
+.column--hovered {
+  fill: var(--accent-hover);
+}
+
+.column-label {
+  fill: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.numbers {
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.numbers summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.mini-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.mini-table th,
+.mini-table td {
+  padding: 5px 0;
+  text-align: left;
+  font-weight: 400;
+  border-bottom: 1px solid var(--border);
+}
+
+.mini-table td {
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- meters (budgets) --------------------------------------------------- */
+
+.meters,
+.goals {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.meter-head,
+.goal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.meter-name,
+.goal-name {
+  font-size: 13.5px;
+  font-weight: 550;
+}
+
+.meter-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.meter-status--good {
+  color: var(--good);
+}
+
+.meter-status--warning {
+  color: var(--warning);
+}
+
+.meter-status--critical {
+  color: var(--critical);
+}
+
+.meter-track,
+.goal-track {
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.meter-track--good {
+  background: var(--good-track);
+  --meter-fill: var(--good);
+}
+
+.meter-track--warning {
+  background: var(--warning-track);
+  --meter-fill: var(--warning-mark);
+}
+
+.meter-track--critical {
+  background: var(--critical-track);
+  --meter-fill: var(--critical);
+}
+
+.meter-fill {
+  height: 100%;
+  background: var(--meter-fill);
+  border-radius: 4px;
+}
+
+.meter-foot,
+.goal-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.over {
+  color: var(--critical);
+  font-weight: 600;
+}
+
+/* --- savings goals ------------------------------------------------------ */
+
+.goal-track {
+  background: var(--accent-track);
+}
+
+.goal-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 4px;
+}
+
+.goal-pct {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- ledger table ------------------------------------------------------- */
+
+.ledger {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.ledger th {
+  text-align: left;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  font-weight: 600;
+  padding: 0 10px 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.ledger td {
+  padding: 9px 10px 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.ledger tr:last-child td {
+  border-bottom: none;
+}
+
+.ledger tbody tr:hover {
+  background: var(--hover);
+}
+
+.amount {
+  font-variant-numeric: tabular-nums;
+  font-weight: 550;
+  white-space: nowrap;
+}
+
+.amount--in {
+  color: var(--income);
+}
+
+.amount--out {
+  color: var(--text);
+}
+
+.amount--neutral {
+  /* A transfer earned and spent nothing, so it is tinted neither way. */
+  color: var(--muted);
+}
+
+.badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  background: var(--surface-sunken);
+  vertical-align: 1px;
+}
+
+/* --- insights ----------------------------------------------------------- */
+
+.insights {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.insight {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  padding: 13px 15px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-sunken);
+}
+
+.insight--positive {
+  border-left: 3px solid var(--good);
+}
+
+.insight--neutral {
+  border-left: 3px solid var(--accent-faded);
+}
+
+.insight--attention {
+  border-left: 3px solid var(--warning-mark);
+}
+
+.insight-icon {
+  display: inline-flex;
+  padding-top: 2px;
+}
+
+.insight--positive .insight-icon {
+  color: var(--good);
+}
+
+.insight--neutral .insight-icon {
+  color: var(--muted);
+}
+
+.insight--attention .insight-icon {
+  color: var(--warning);
+}
+
+.insight-text {
+  margin: 0;
+  font-size: 13.5px;
+}
+
+.insight-figure {
+  grid-column: 2;
+  margin-top: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- narrow windows ----------------------------------------------------- */
+
+/*
+ * Desktop is the target, but a half-width window should not break. The sidebar
+ * becomes a horizontal strip rather than shrinking into unreadability.
+ */
+@media (max-width: 820px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sidebar {
+    position: static;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .pane {
+    padding: 22px 18px 48px;
+  }
+
+  .tile--hero {
+    grid-column: span 1;
+  }
+}
+
+/* --- donut (monthly budget) --------------------------------------------- */
+
+.donut-layout {
+  display: flex;
+  gap: 22px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.donut-wrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.donut-arc {
+  /* No stroke around the mark: the 2px gap taken out of each arc is what
+     separates neighbours, so no extra non-data ink is drawn. */
+  transition: opacity 0.12s ease;
+}
+
+.donut-arc--remainder {
+  stroke: var(--series-remainder);
+}
+
+.donut-arc--hovered {
+  opacity: 0.72;
+}
+
+.donut-centre {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.donut-centre-value {
+  font-size: 26px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.donut-centre-label {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.donut-side {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.legend-row {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto 40px;
+  align-items: center;
+  gap: 9px;
+  padding: 3px 5px;
+  border-radius: 5px;
+  font-size: 13px;
+}
+
+.legend-row--hovered {
+  background: var(--hover);
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.swatch--remainder {
+  background: var(--series-remainder);
+}
+
+.legend-name {
+  /* Text wears text tokens; the swatch beside it carries the identity. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.legend-value,
+.legend-share {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.legend-share {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.donut-status {
+  margin: 12px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.donut-status--over {
+  color: var(--critical);
+}
+
+/* --- forms --------------------------------------------------------------- */
+
+.entry-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+  align-items: end;
+}
+
+.inline-form {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.field--wide {
+  grid-column: span 2;
+}
+
+.field--directions {
+  grid-column: span 2;
+}
+
+.field--actions {
+  flex-direction: row;
+  gap: 8px;
+  align-items: center;
+}
+
+.field-label {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.045em;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+input[type='text'],
+input[type='date'],
+select {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 8px 10px;
+  min-width: 0;
+  width: 100%;
+}
+
+input[type='text']:focus-visible,
+input[type='date']:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.cell-input {
+  max-width: 110px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  padding: 5px 8px;
+}
+
+/* A radio group styled as one control; aria-checked carries the real state. */
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.segment {
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 12px;
+  border: none;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.segment:last-child {
+  border-right: none;
+}
+
+.segment:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.segment--on {
+  background: var(--accent);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+@media (prefers-color-scheme: dark) {
+  .segment--on {
+    /* The dark accent is a light green, so ink reads on it, not white. */
+    color: #12241a;
+  }
+}
+
+.btn {
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 9px 15px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  .btn--primary {
+    color: #12241a;
+  }
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btn--ghost {
+  background: transparent;
+}
+
+.btn--tiny {
+  font-size: 12px;
+  padding: 4px 9px;
+  margin-left: 6px;
+}
+
+.btn--danger {
+  color: var(--critical);
+  border-color: var(--border);
+}
+
+.notice--error {
+  border-left-color: var(--critical);
+  color: var(--text);
+}
+
+/* --- budget table -------------------------------------------------------- */
+
+.budget-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.budget-table th[scope='col'] {
+  text-align: left;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  font-weight: 600;
+  padding: 0 10px 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.budget-table th[scope='col'].right,
+.budget-table td.right {
+  text-align: right;
+}
+
+.budget-table th[scope='row'] {
+  text-align: left;
+  font-weight: 500;
+}
+
+.budget-table th,
+.budget-table td {
+  padding: 7px 10px 7px 0;
+  border-bottom: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+}
+
+.budget-table tbody tr:last-child th,
+.budget-table tbody tr:last-child td {
+  border-bottom: none;
+}

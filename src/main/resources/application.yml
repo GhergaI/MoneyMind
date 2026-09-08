@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: moneymind
+
+  datasource:
+    # Lives outside the repo and outside target/, so neither git nor `mvn clean`
+    # can ever touch real financial data. The directory is created in main().
+    url: "jdbc:sqlite:${user.home}/.moneymind/moneymind.db?journal_mode=WAL&foreign_keys=on"
+    driver-class-name: org.sqlite.JDBC
+    hikari:
+      # SQLite is a single-writer database. More than one connection produces
+      # intermittent SQLITE_BUSY under concurrent requests.
+      maximum-pool-size: 1
+      # SQLite defaults foreign keys OFF and silently accepts orphan rows.
+      connection-init-sql: "PRAGMA foreign_keys=ON"
+
+  jpa:
+    # Flyway owns the schema. Always `validate`, never `update`.
+    hibernate:
+      ddl-auto: validate
+    # Must be explicit — auto-detection will not find the community dialect.
+    database-platform: org.hibernate.community.dialect.SQLiteDialect
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+moneymind:
+  # Currency for the account created on first run. Change this before first
+  # start if EUR is not what you want — it is only a default, and each account
+  # carries its own currency.
+  default-currency: EUR
+  ai:
+    # The insight engine is fully functional with this off; the LLM only ever
+    # rewords facts that were already computed deterministically.
+    enabled: false
+  demo-data:
+    # DEVELOPMENT AID — remove once Phase 1 provides real transaction entry.
+    # Seeds six months of plausible activity so the dashboard can be judged
+    # before manual entry exists. It runs ONLY when the txn table is completely
+    # empty, so it can never alter data entered for real. Set to false (and
+    # delete ~/.moneymind/moneymind.db to clear what it wrote) to start clean.
+    enabled: true
+
+server:
+  port: 8080
+
+logging:
+  level:
+    org.flywaydb: INFO
